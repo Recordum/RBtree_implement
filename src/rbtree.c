@@ -9,6 +9,7 @@ rbtree *new_rbtree(void) {
     node_t *NIL = (node_t*)calloc(1, sizeof(node_t));
     NIL -> color = RBTREE_BLACK;
     p->nil = NIL;
+    p->root = NIL;
   return p;
 }
 
@@ -23,9 +24,10 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     node->key = key;
     node->right = t->nil;
     node->left = t->nil;
-    if(t->root == NULL){
+    if(t->root == t->nil){
         t->root = node;
         node->color = RBTREE_BLACK;
+        node->parent = t->nil;
         return t->root;
     }
     node_t *compare_node = t->root;
@@ -34,7 +36,7 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     while(1){
         key_t compare_key = compare_node->key;
         if (compare_key < key){
-            if (compare_node->right->key == NULL) {
+            if (compare_node->right == t->nil) {
                 compare_node->right = node;
                 node->parent = compare_node;
                 break;
@@ -43,8 +45,7 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
         }
         if (compare_key >= key){
             compare_node = compare_node->left;
-            if (compare_node->left->key == NULL) {
-                node_t *NIL = compare_node->right;
+            if (compare_node->left == t->nil) {
                 compare_node->left = node;
                 node->parent = compare_node;
                 break;
@@ -130,7 +131,28 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
 
 node_t *rbtree_find(const rbtree *t, const key_t key) {
   // TODO: implement find
-  return t->root;
+    while(1){
+        node_t *compare_node = t->root;
+        key_t compare_key = compare_node->key;
+        if (compare_key == key){
+            return compare_node;
+        }
+        if (compare_key < key){
+            if (compare_node->right->key == key){
+                return compare_node->right;
+            }
+            compare_node = compare_node->right;
+        }
+        if (compare_key > key){
+            if (compare_node->left->key == key){
+                return compare_node->left;
+            }
+            compare_node = compare_node->left;
+        }
+        if (compare_node == t->nil){
+            return NULL;
+        }
+    }
 }
 
 node_t *rbtree_min(const rbtree *t) {
@@ -151,8 +173,4 @@ int rbtree_erase(rbtree *t, node_t *p) {
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
   // TODO: implement to_array
   return 0;
-}
-
-int main(){
-    return 0;
 }
