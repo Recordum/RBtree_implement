@@ -13,8 +13,29 @@ rbtree *new_rbtree(void) {
   return p;
 }
 
+void traversal_node(rbtree *t, node_t *cur_node){
+    if(cur_node->left != t->nil){
+        traversal_node(t, cur_node->left);
+        cur_node->left = t->nil;
+    }
+    if(cur_node->right != t->nil){
+        traversal_node(t, cur_node->right);
+        cur_node->right = t->nil;
+    }
+    if (cur_node ->left == t->nil && cur_node -> right == t->nil){
+        free(cur_node);
+        return;
+    }
+    return;
+}
 void delete_rbtree(rbtree *t) {
   // TODO: reclaim the tree nodes's memory
+  node_t *cur_node = t->root;
+  if (t->root == t->nil){
+      free(t);
+      return;
+  }
+  traversal_node(t, cur_node);
   free(t);
 }
 
@@ -44,7 +65,6 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
             compare_node = compare_node->right;
         }
         if (compare_key >= key){
-            compare_node = compare_node->left;
             if (compare_node->left == t->nil) {
                 compare_node->left = node;
                 node->parent = compare_node;
@@ -58,20 +78,23 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     node_t *parent = node->parent;
     //find uncle
     node_t *uncle;
+    if (grand_parent == t->nil){
+        return t->root;
+    }
     if (grand_parent->left == parent){
         uncle = grand_parent->right;
     }else{
         uncle = grand_parent->left;
     }
+    //satisfy property
+    if (node->parent->color == RBTREE_BLACK) {
+        return t->root;
+    }
     while(1) {
-        //satisfy property
-        if (node->parent->color == RBTREE_BLACK) {
-            return t->root;
-        }
         //Restructuring
         if (uncle->color == RBTREE_BLACK) {
             //linear
-            if ((key > parent->key && key > grand_parent->key) || (key <= parent->key && key <= grand_parent->key)) {
+            if ((node->key > parent->key && key > grand_parent->key) || (node->key <= parent->key && key <= grand_parent->key)) {
                 if (grand_parent->parent->right == grand_parent) {
                     grand_parent->parent->right = parent;
                 } else {
@@ -79,52 +102,72 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
                 }
                 parent->parent = grand_parent->parent;
                 grand_parent->parent = parent;
+                //left-linear
                 if (grand_parent->left == parent) {
+                    grand_parent -> left = parent->right;
+                    parent->right->parent = grand_parent;
                     parent->right = grand_parent;
                     parent->left = node;
-                    grand_parent->left = t->nil;
+                //right-linear
                 } else {
+                    grand_parent -> right = parent->left;
+                    parent->left->parent = grand_parent;
                     parent->left = grand_parent;
                     parent->right = node;
-                    grand_parent->right = t->nil;
                 }
+
                 parent->color = RBTREE_BLACK;
                 grand_parent->color = RBTREE_RED;
+                if (parent -> parent == t->nil){
+                    t->root = parent;
+                }
+                return t->root;
             } else {
                 //triangle
-                if (grand_parent->parent->right == grand_parent) {
-                    grand_parent->parent->right = node;
-                } else {
-                    grand_parent->parent->left = node;
-                }
-                node->parent = grand_parent->parent;
-                grand_parent->parent = node;
+                node->parent = grand_parent;
                 parent->parent = node;
                 if (grand_parent->left == parent) {
+                    grand_parent->left = node;
+                    node -> left->parent = parent;
+                    parent->right = node->left;
                     node->left = parent;
-                    node->right = grand_parent;
-                    grand_parent->left = t->nil;
                 } else {
+                    grand_parent->right = node;
+                    node->right->parent = parent;
+                    parent->left = node->right;
                     node->right = parent;
-                    node->left = grand_parent;
-                    grand_parent->right = t->nil;
                 }
-                node->color = RBTREE_BLACK;
-                parent->left = t->nil;
-                parent->right = t->nil;
-                grand_parent->color = RBTREE_RED;
+                node = parent;
+                parent = node->parent;
+                grand_parent = parent->parent;
+                if (grand_parent->left == parent){
+                    uncle = grand_parent->right;
+                }else{
+                    uncle = grand_parent->left;
+                }
+                continue;
             }
-            continue;
         }
         //Recoloring
         if (uncle->color == RBTREE_RED){
            uncle->color = RBTREE_BLACK;
            parent->color = RBTREE_BLACK;
            grand_parent->color = RBTREE_RED;
-           if (grand_parent == t->root){
-               grand_parent->color = RBTREE_BLACK;
-           }
-            continue;
+            if (grand_parent == t->root){
+                grand_parent->color = RBTREE_BLACK;
+            }
+            if (grand_parent->parent->color == RBTREE_RED) {
+                node = grand_parent;
+                parent = node->parent;
+                grand_parent = parent->parent;
+                if (grand_parent->left == parent){
+                    uncle = grand_parent->right;
+                }else{
+                    uncle = grand_parent->left;
+                }
+                continue;
+            }
+           return t->root;
         }
     }
 }
@@ -170,7 +213,18 @@ int rbtree_erase(rbtree *t, node_t *p) {
   return 0;
 }
 
+void inorder(const rbtree *t, node_t *cur_node, key_t *arr, int *index){
+    if (cur_node == t->nil) {
+        return;
+    }
+    inorder(t,cur_node->left,arr,index);
+    arr[(*index)++] = cur_node->key;
+    inorder(t,cur_node->right,arr,index);
+}
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
   // TODO: implement to_array
+  node_t *cur_node = t->root;
+  int index = 0;
+  inorder(t, cur_node, arr, &index);
   return 0;
 }
