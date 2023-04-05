@@ -223,7 +223,7 @@ node_t *rbtree_max(const rbtree *t) {
     }
 }
 
-int has_below_one_child(rbtree *t, node_t *cur_node) {
+int has_fewer_child(rbtree *t, node_t *cur_node) {
     if (cur_node->left == t->nil || cur_node->right == t->nil){
         return 1;
     }
@@ -290,7 +290,7 @@ int nephew_is_RBTREE_BLACK(node_t *brother_node, node_t *nephew_node) {
     return 0;
 }
 
-int all_nephew_is_RBTREE_BLACK(node_t *brother_node, node_t *nephew_node){
+int all_nephew_are_RBTREE_BLACK(node_t *brother_node, node_t *nephew_node){
     if (nephew_node->color == RBTREE_RED || brother_node->color == RBTREE_RED){
         return 0;
     }
@@ -309,62 +309,78 @@ int brother_is_RBTREE_RED(node_t* brother_node){
     }
     return 0;
 }
-
-void doubly_black(rbtree *t, node_t *cur_node, node_t *parent_node) {
+node_t* define_brother(node_t *parent_node, node_t* cur_node){
+    if (parent_node->left == cur_node) {
+        return parent_node->right;
+    }
+    return parent_node->left;
+}
+node_t* define_nephew_node(node_t *parent_node, node_t* cur_node){
+    if (parent_node->left == cur_node) {
+        return parent_node->right->right;
+    }
+    return parent_node->left->left;
+}
+void fix_nephew_is_RBTREE_RED(rbtree *t, node_t *brother_node, node_t* parent_node, node_t* nephew_node){
+    brother_node->color = parent_node->color;
+    parent_node->color = RBTREE_BLACK;
+    nephew_node->color = RBTREE_BLACK;
+    if (brother_node->right == nephew_node) {
+        left_rotate(t, brother_node, parent_node);
+    }else{
+        right_rotate(t, brother_node, parent_node);
+    }
+}
+void fix_nephew_is_RBTREE_BLACK(rbtree *t, node_t *brother_node, node_t* parent_node, node_t* nephew_node){
+    brother_node->color = RBTREE_RED;
+    if (brother_node->right == nephew_node) {
+        brother_node->left->color = RBTREE_BLACK;
+        right_rotate(t, brother_node->left, brother_node);
+    }else{
+        brother_node->right->color = RBTREE_BLACK;
+        left_rotate(t, brother_node->right, brother_node);
+    }
+}
+void fix_brother_is_RBTREE_RED(rbtree *t, node_t *brother_node, node_t *parent_node, node_t *cur_node){
+    color_t temp = brother_node->color;
+    brother_node->color = parent_node->color;
+    parent_node->color = temp;
+    if (parent_node->left == cur_node) {
+        left_rotate(t, brother_node, parent_node);
+        return;
+    }
+    right_rotate(t, brother_node, parent_node);
+}
+void fix_doubly_black(rbtree *t, node_t *cur_node, node_t *parent_node) {
     node_t *brother_node;
     node_t *nephew_node;
     while(1){
-        if (parent_node->left == cur_node) {
-            brother_node = parent_node->right;
-            nephew_node = brother_node->right;
-        }else{
-            brother_node = parent_node->left;
-            nephew_node = brother_node->left;
-        }
+        brother_node = define_brother(parent_node, cur_node);
+        nephew_node = define_nephew_node(parent_node, cur_node);
         if (nephew_is_RBTREE_RED(brother_node,nephew_node)){
-            brother_node->color = parent_node->color;
-            parent_node->color = RBTREE_BLACK;
-            nephew_node->color = RBTREE_BLACK;
-            if (brother_node->right == nephew_node) {
-                left_rotate(t, brother_node, parent_node);
-            }else{
-                right_rotate(t, brother_node, parent_node);
-            }
+            fix_nephew_is_RBTREE_RED(t, brother_node, parent_node, nephew_node);
             return;
         }
         if (nephew_is_RBTREE_BLACK(brother_node, nephew_node)){
-            brother_node->color = RBTREE_RED;
-            if (brother_node->right == nephew_node) {
-                brother_node->left->color = RBTREE_BLACK;
-                right_rotate(t, brother_node->left, brother_node);
-            }else{
-                brother_node->right->color = RBTREE_BLACK;
-                left_rotate(t, brother_node->right, brother_node);
-            }
+            fix_nephew_is_RBTREE_BLACK(t, brother_node, parent_node, nephew_node);
             continue;
         }
-        if (all_nephew_is_RBTREE_BLACK(brother_node, nephew_node)){
+        if (all_nephew_are_RBTREE_BLACK(brother_node, nephew_node)){
             brother_node->color = RBTREE_RED;
             if (parent_node->color == RBTREE_RED || t->root == parent_node){
                 parent_node->color = RBTREE_BLACK;
                 return;
             }
-            doubly_black(t,parent_node,parent_node->parent);
+            fix_doubly_black(t,parent_node,parent_node->parent);
             return;
         }
         if (brother_is_RBTREE_RED(brother_node)){
-            color_t temp = brother_node->color;
-            brother_node->color = parent_node->color;
-            parent_node->color = temp;
-            if (parent_node->left == cur_node) {
-                left_rotate(t, brother_node, parent_node);
-            }else{
-                right_rotate(t, brother_node, parent_node);
-            }
+            fix_brother_is_RBTREE_RED(t, brother_node, parent_node, cur_node);
             continue;
         }
     }
 }
+
 
 void deleted_black(rbtree *t, node_t *cur_node, node_t *child_node, node_t *parent_node){
     free(cur_node);
@@ -378,10 +394,10 @@ void deleted_black(rbtree *t, node_t *cur_node, node_t *child_node, node_t *pare
         return;
     }
     //doubly_black
-    doubly_black(t, child_node, parent_node);
+    fix_doubly_black(t, child_node, parent_node);
 }
 
-void delete_below_one_child(rbtree *t, node_t *cur_node){
+void delete_node_with_fewer_child(rbtree *t, node_t *cur_node){
     if (cur_node->parent->left == cur_node) {
         if (cur_node->left == t->nil) {
             cur_node->right->parent = cur_node->parent;
@@ -475,10 +491,13 @@ int rbtree_erase(rbtree *t, node_t *p) {
     // TODO: implement erase
     node_t *cur_node = t->root;
     cur_node = find_erase_node(t,cur_node,p);
-    if (has_below_one_child(t, cur_node)) {
-        delete_below_one_child(t, cur_node);
-    }else{
+    if (has_fewer_child(t, cur_node)) {
+        delete_node_with_fewer_child(t, cur_node);
+        return 0;
+    }
+    if (!has_fewer_child(t, cur_node)){
         delete_successor(t, cur_node);
+        return 0;
     }
     return 0;
 }
