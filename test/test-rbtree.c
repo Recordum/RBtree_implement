@@ -312,6 +312,7 @@ void test_to_array_suite() {
 
 void test_find_erase(rbtree *t, const key_t *arr, const size_t n) {
   for (int i = 0; i < n; i++) {
+      //printf("arr[%d] = %d\n", i, arr[i]);
     node_t *p = rbtree_insert(t, arr[i]);
     assert(p != NULL);
   }
@@ -378,6 +379,6 @@ int main(void) {
   test_distinct_values();
   test_duplicate_values();
   test_multi_instance();
-  test_find_erase_rand(10000, 17);
+  test_find_erase_rand(100000, 55);
   printf("Passed all tests!\n");
 }
