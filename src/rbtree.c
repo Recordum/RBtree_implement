@@ -98,6 +98,110 @@ int satisfy_property(node_t *node){
     }
     return 0;
 }
+int need_restructuring(node_t *grand_parent){
+    if (grand_parent->parent->color == RBTREE_RED){
+        return 1;
+    }
+    return 0;
+}
+
+int is_linear(node_t *node, node_t *parent, node_t *grand_parent) {
+    if ((grand_parent->left == parent && parent->left == node) ||
+        (grand_parent->right == parent && parent->right == node)) {
+        return 1;
+    }
+    return 0;
+}
+void replace_linear_node(node_t* parent, node_t* grand_parent){
+    if (grand_parent->parent->right == grand_parent) {
+        grand_parent->parent->right = parent;
+    } else {
+        grand_parent->parent->left = parent;
+    }
+    parent->parent = grand_parent->parent;
+    grand_parent->parent = parent;
+}
+void fix_linear_node(rbtree *t, node_t* node, node_t* parent, node_t* grand_parent) {
+    replace_linear_node(parent, grand_parent);
+    //left-linear
+    if (grand_parent->left == parent) {
+        grand_parent -> left = parent->right;
+        parent->right->parent = grand_parent;
+        parent->right = grand_parent;
+        parent->left = node;
+
+    } else {
+        //right-linear
+        grand_parent -> right = parent->left;
+        parent->left->parent = grand_parent;
+        parent->left = grand_parent;
+        parent->right = node;
+    }
+    parent->color = RBTREE_BLACK;
+    grand_parent->color = RBTREE_RED;
+    if (parent -> parent == t->nil){
+        t->root = parent;
+    }
+}
+void replace_triangle_node(node_t *node, node_t *parent, node_t *grand_parent){
+    node->parent = grand_parent;
+    parent->parent = node;
+    if (grand_parent->left == parent) {
+        grand_parent->left = node;
+        node -> left->parent = parent;
+        parent->right = node->left;
+        node->left = parent;
+    } else {
+        grand_parent->right = node;
+        node->right->parent = parent;
+        parent->left = node->right;
+        node->right = parent;
+    }
+}
+node_t *define_uncle(node_t *parent, node_t *grand_parent){
+    if (grand_parent->left == parent){
+       return grand_parent->right;
+    }
+    return grand_parent->left;
+}
+void recoloring(rbtree *t, node_t *parent, node_t *grand_parent, node_t *uncle){
+    uncle->color = RBTREE_BLACK;
+    parent->color = RBTREE_BLACK;
+    grand_parent->color = RBTREE_RED;
+    if (grand_parent == t->root){
+        grand_parent->color = RBTREE_BLACK;
+    }
+}
+void fix_rbtree(rbtree *t, node_t *node, node_t *parent, node_t *grand_parent, node_t *uncle){
+    //Restructuring
+    if (uncle->color == RBTREE_BLACK) {
+        if (is_linear(node, parent, grand_parent)) {
+            fix_linear_node(t, node, parent, grand_parent);
+            return;
+        } else {
+            replace_triangle_node(node, parent, grand_parent);
+            node = parent;
+            parent = node->parent;
+            grand_parent = parent->parent;
+            uncle = define_uncle(parent, grand_parent);
+            fix_rbtree(t, node, parent, grand_parent, uncle);
+            return;
+        }
+    }
+    //Recoloring
+    if (uncle->color == RBTREE_RED){
+        recoloring(t, parent,grand_parent,uncle);
+        if (need_restructuring(grand_parent)) {
+            node = node->parent->parent;
+            parent = node->parent;
+            grand_parent = parent->parent;
+            uncle = define_uncle(parent,grand_parent);
+            fix_rbtree(t,node,parent,grand_parent,uncle);
+            return;
+        }
+        return;
+    }
+}
 node_t *rbtree_insert(rbtree *t, const key_t key) {
     // TODO: implement insert
     node_t *node = (node_t *)calloc(1,sizeof(node_t));
@@ -106,96 +210,20 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     if(is_rbtree_empty(t, node)){
         return t->root;
     }
+
     insert_node(t,node);
 
-    //satisfy property
     if (satisfy_property(node)) {
         return t->root;
     }
-
-    node_t *grand_parent = node->parent->parent;
-    node_t *parent = node->parent;
-    node_t *uncle= find_uncle(t, grand_parent, parent);
-    while(1) {
-        //Restructuring
-        if (uncle->color == RBTREE_BLACK) {
-            //linear
-            if ((grand_parent->left == parent && parent->left == node) || (grand_parent->right == parent && parent->right == node)) {
-                if (grand_parent->parent->right == grand_parent) {
-                    grand_parent->parent->right = parent;
-                } else {
-                    grand_parent->parent->left = parent;
-                }
-                parent->parent = grand_parent->parent;
-                grand_parent->parent = parent;
-                //left-linear
-                if (grand_parent->left == parent) {
-                    grand_parent -> left = parent->right;
-                    parent->right->parent = grand_parent;
-                    parent->right = grand_parent;
-                    parent->left = node;
-                    //right-linear
-                } else {
-                    grand_parent -> right = parent->left;
-                    parent->left->parent = grand_parent;
-                    parent->left = grand_parent;
-                    parent->right = node;
-                }
-
-                parent->color = RBTREE_BLACK;
-                grand_parent->color = RBTREE_RED;
-                if (parent -> parent == t->nil){
-                    t->root = parent;
-                }
-                return t->root;
-            } else {
-                //triangle
-                node->parent = grand_parent;
-                parent->parent = node;
-                if (grand_parent->left == parent) {
-                    grand_parent->left = node;
-                    node -> left->parent = parent;
-                    parent->right = node->left;
-                    node->left = parent;
-                } else {
-                    grand_parent->right = node;
-                    node->right->parent = parent;
-                    parent->left = node->right;
-                    node->right = parent;
-                }
-                node = parent;
-                parent = node->parent;
-                grand_parent = parent->parent;
-                if (grand_parent->left == parent){
-                    uncle = grand_parent->right;
-                }else{
-                    uncle = grand_parent->left;
-                }
-                continue;
-            }
-        }
-        //Recoloring
-        if (uncle->color == RBTREE_RED){
-            uncle->color = RBTREE_BLACK;
-            parent->color = RBTREE_BLACK;
-            grand_parent->color = RBTREE_RED;
-            if (grand_parent == t->root){
-                grand_parent->color = RBTREE_BLACK;
-            }
-            if (grand_parent->parent->color == RBTREE_RED) {
-                node = grand_parent;
-                parent = node->parent;
-                grand_parent = parent->parent;
-                if (grand_parent->left == parent){
-                    uncle = grand_parent->right;
-                }else{
-                    uncle = grand_parent->left;
-                }
-                continue;
-            }
-            return t->root;
-        }
+    if (!satisfy_property(node)){
+        node_t *grand_parent = node->parent->parent;
+        node_t *parent = node->parent;
+        node_t *uncle= find_uncle(t, grand_parent, parent);
+        fix_rbtree(t, node, parent, grand_parent, uncle);
+        return t->root;
     }
+    return t->root;
 }
 
 node_t *rbtree_find(const rbtree *t, const key_t key) {
