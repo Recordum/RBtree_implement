@@ -92,6 +92,12 @@ int is_rbtree_empty(rbtree *t, node_t *node){
     }
     return 0;
 }
+int satisfy_property(node_t *node){
+    if (node->parent->color == RBTREE_BLACK){
+        return 1;
+    }
+    return 0;
+}
 node_t *rbtree_insert(rbtree *t, const key_t key) {
     // TODO: implement insert
     node_t *node = (node_t *)calloc(1,sizeof(node_t));
@@ -103,7 +109,7 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     insert_node(t,node);
 
     //satisfy property
-    if (node->parent->color == RBTREE_BLACK) {
+    if (satisfy_property(node)) {
         return t->root;
     }
 
